@@ -24,7 +24,9 @@ Copyright 2013  Robert Danklefsen  (email : bobby@catchylabs.com)
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-//creates the block info
+/**
+ * Implements hook_block_info().
+ */
 function simpletwitterfeed_block_info() {
     $blocks['simple_twitter_feed'] = array(
       'info' => t('Simple Twitter Feed'), //The name that will appear in the block list.
@@ -33,7 +35,9 @@ function simpletwitterfeed_block_info() {
     return $blocks;
 }
 
-//hook block configure
+/**
+ * Implements hook_block_configure().
+ */
 function simpletwitterfeed_block_configure($delta = '') {
 	$form = array();
 	switch($delta) {
@@ -88,7 +92,9 @@ function simpletwitterfeed_block_configure($delta = '') {
 	return $form;
 }
 
-//hook block save
+/**
+ * Implements hook_block_save().
+ */
 function simpletwitterfeed_block_save($delta = '', $edit = array()) {
 	switch($delta) {
 		case 'simple_twitter_feed':
@@ -103,20 +109,27 @@ function simpletwitterfeed_block_save($delta = '', $edit = array()) {
 	}
 }
 
-//creates the block
+/**
+ * Implements hook_block_view().
+ */
 function simpletwitterfeed_block_view($delta = '') {
 	$block = array();
     switch($delta){
 	  case 'simple_twitter_feed':
 		$block['subject'] = NULL;
-		$block['content'] = simpletwitterfeed_magic();
+		$block['content'] = _simpletwitterfeed_get_tweets();
 		break;
     } 
     return $block;
 }
 
-//creates the feed
-function simpletwitterfeed_magic() {
+/**
+ * Get Twitter feed for block.
+ *
+ * @return string
+ *   Twitter feed, themed
+ */
+function _simpletwitterfeed_get_tweets() {
 	$twitter_data = simpletwitterfeed_getFeed();
 	
 	if (empty($twitter_data)) {
@@ -125,10 +138,10 @@ function simpletwitterfeed_magic() {
 		$stf_code = '<ul id="twitterFeed">';
 		
 		foreach($twitter_data as $tweets){
-			$text = simpletwitterfeed_makeURLs($tweets['text']);
+			$text = _simpletwitterfeed_makeURLs($tweets['text']);
 			$time = strtotime($tweets['created_at']);
 			$url = 'http://twitter.com/'.$tweets['user']['screen_name'].'/status/'.$tweets['id'];
-			$agoTime = simpletwitterfeed_time_elapsed_string($time);
+			$agoTime = _simpletwitterfeed_time_elapsed_string($time);
 			$stf_code .= '<li>';
 			$stf_code .= '<span class="twitter-text">'. $text . '</span>';
 			$stf_code .= '<br />';
@@ -202,7 +215,7 @@ function simpletwitterfeed_getFeed() {
 	ksort($stf_oauth); // probably not necessary, but twitter's demo does it
 	
 	// also not necessary, but twitter's demo does this too
-	$stf_oauth = array_map("simpletwitterfeed_add_quotes", $stf_oauth);
+	$stf_oauth = array_map("_simpletwitterfeed_add_quotes", $stf_oauth);
 	
 	// this is the full value of the Authorization line
 	$stf_auth = "OAuth " . urldecode(http_build_query($stf_oauth, '', ', '));
@@ -230,10 +243,12 @@ function simpletwitterfeed_getFeed() {
 }
 
 //part of twitters demo. Whatever...
-function simpletwitterfeed_add_quotes($stf_str) { return '"'.$stf_str.'"'; }
+function _simpletwitterfeed_add_quotes($stf_str) {
+  return '"'.$stf_str.'"';
+}
 
 //function takes the time from the tweet and computes a "time ago"
-function simpletwitterfeed_time_elapsed_string($stf_ptime) {
+function _simpletwitterfeed_time_elapsed_string($stf_ptime) {
 
     $stf_etime = time() - $stf_ptime;
 
@@ -259,7 +274,7 @@ function simpletwitterfeed_time_elapsed_string($stf_ptime) {
 }
 
 //makes urls out of links, @usernames, and hash tags.
-function simpletwitterfeed_makeURLs($stf_text) {
+function _simpletwitterfeed_makeURLs($stf_text) {
 	// Match URLs
 	$stf_text = preg_replace('`\b(([\w-]+://?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|/)))`', '<a href="$0">$0</a>', $stf_text);
 
