@@ -1,3 +1,7 @@
+Forked from https://drupal.org/sandbox/bobbydank/2045997
+
+Modified to use a separate php library for accessing Twitter API using a bearer token.
+
 -- SUMMARY --
 
 This is a simple module that uses Twitter's API 1.1 to get an unordered 

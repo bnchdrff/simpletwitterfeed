@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * Implements hook_uninstall().
+ */
+function simpletwitterfeed_uninstall() {
+  variable_del('simpletwitterfeed_username');
+  variable_del('simpletwitterfeed_count');
+  variable_del('simpletwitterfeed_token');
+  variable_del('simpletwitterfeed_stoken');
+  variable_del('simpletwitterfeed_consumerkey');
+  variable_del('simpletwitterfeed_consumersecret');
+  variable_del('simpletwitterfeed_ttl');
+}
+

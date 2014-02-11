@@ -47,6 +47,7 @@ function simpletwitterfeed_block_configure($delta = '') {
         '#type' => 'textfield',
         '#title' => t('Twitter account username'),
         '#size' => 100,
+        '#required' => TRUE,
         '#default_value' => variable_get('simpletwitterfeed_username',''),
         '#description' => t('Username for the account you want to pull the feed from.')
       );
@@ -55,7 +56,7 @@ function simpletwitterfeed_block_configure($delta = '') {
         '#type' => 'textfield',
         '#title' => t('Number of tweets to return'),
         '#size' => 10,
-        '#default_value' => variable_get('simpletwitterfeed_count',''),
+        '#default_value' => variable_get('simpletwitterfeed_count', '1'),
         '#description' => t('The number of tweets you wish to have displayed. The maximum (I think) is 200.')
       );
       //consumer key
@@ -63,6 +64,7 @@ function simpletwitterfeed_block_configure($delta = '') {
         '#type' => 'textfield',
         '#title' => t('Consumer Key'),
         '#size' => 100,
+        '#required' => TRUE,
         '#default_value' => variable_get('simpletwitterfeed_consumerkey','')
       );
       //consumer secret
@@ -70,6 +72,7 @@ function simpletwitterfeed_block_configure($delta = '') {
         '#type' => 'textfield',
         '#title' => t('Consumer Secret Key'),
         '#size' => 100,
+        '#required' => TRUE,
         '#default_value' => variable_get('simpletwitterfeed_consumersecret','')
       );
       //token key
@@ -77,6 +80,7 @@ function simpletwitterfeed_block_configure($delta = '') {
         '#type' => 'textfield',
         '#title' => t('Token Key'),
         '#size' => 100,
+        '#required' => TRUE,
         '#default_value' => variable_get('simpletwitterfeed_token','')
       );
       //token secret key
@@ -84,9 +88,27 @@ function simpletwitterfeed_block_configure($delta = '') {
         '#type' => 'textfield',
         '#title' => t('Token Secret Key'),
         '#size' => 100,
+        '#required' => TRUE,
         '#default_value' => variable_get('simpletwitterfeed_stoken',''),
         '#description' => t('For this and the three values above it, you will need to go to http://dev.twitter.com/apps (log in with your regular Twitter account credentials) and create an app for the feed on your website. Once you create the app, you will need to create Access Keys. These keys will then need to be copied into these 4 field. For a guide on how to do this, look at http://catchlabs.com/simple-twitter-feed-instructions')
       );
+      //bearer token
+      $form['simpletwitterfeed_bearertoken'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Bearer token'),
+        '#size' => 100,
+        '#default_value' => variable_get('simpletwitterfeed_bearertoken', ''),
+        '#description' => t('This value will be automatically set on form submission if not provided, but you can view it here afterwards or provide a manually created token.')
+      );
+      //ttl
+      $form['simpletwitterfeed_ttl'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Block cache time-to-live'),
+        '#size' => 10,
+        '#default_value' => variable_get('simpletwitterfeed_ttl', '600'),
+        '#description' => t('Time, in seconds, for the block cache.')
+      );
+
       break;
   }
   return $form;
@@ -98,6 +120,7 @@ function simpletwitterfeed_block_configure($delta = '') {
 function simpletwitterfeed_block_save($delta = '', $edit = array()) {
   switch($delta) {
     case 'simple_twitter_feed':
+      module_load_include('inc', 'simpletwitterfeed');
       //$text = check_plain($edit['simpletwitterfeed_username']);
       variable_set('simpletwitterfeed_username', $edit['simpletwitterfeed_username']);
       variable_set('simpletwitterfeed_count', $edit['simpletwitterfeed_count']);
@@ -105,6 +128,12 @@ function simpletwitterfeed_block_save($delta = '', $edit = array()) {
       variable_set('simpletwitterfeed_stoken', $edit['simpletwitterfeed_stoken']);
       variable_set('simpletwitterfeed_consumerkey', $edit['simpletwitterfeed_consumerkey']);
       variable_set('simpletwitterfeed_consumersecret', $edit['simpletwitterfeed_consumersecret']);
+      variable_set('simpletwitterfeed_ttl', $edit['simpletwitterfeed_ttl']);
+      // get a new bearer token if one isn't provided
+      variable_set(
+        'simpletwitterfeed_bearertoken',
+        _simpletwitterfeed_generate_bearer_token($edit['simpletwitterfeed_consumerkey'], $edit['simpletwitterfeed_consumersecret'])
+      );
       break;
   }
 }
@@ -115,136 +144,61 @@ function simpletwitterfeed_block_save($delta = '', $edit = array()) {
 function simpletwitterfeed_block_view($delta = '') {
   $block = array();
     switch($delta){
-    case 'simple_twitter_feed':
-    $block['subject'] = NULL;
-    $block['content'] = _simpletwitterfeed_get_tweets();
-    break;
+      case 'simple_twitter_feed':
+        $block['subject'] = NULL;
+        $block['content'] = _simpletwitterfeed_block_content();
+        $block['#cache'] = array(
+          'cid' => 'simpletwitterfeed_block',
+          'bin' => 'cache',
+          'expire' => time() + variable_get('simpletwitterfeed_ttl', 600),
+        );
+        break;
     }
     return $block;
 }
 
 /**
- * Get Twitter feed for block.
- *
- * @return string
- *   Twitter feed, themed
+ * Prepare content for block
  */
-function _simpletwitterfeed_get_tweets() {
-  $twitter_data = simpletwitterfeed_getFeed();
+function _simpletwitterfeed_block_content() {
+  module_load_include('inc', 'simpletwitterfeed');
 
-  if (empty($twitter_data)) {
-    $stf_code = 'There was an error';
+  $tweets = _simpletwitterfeed_get_tweets(
+    variable_get('simpletwitterfeed_username'),
+    variable_get('simpletwitterfeed_count'),
+    variable_get('simpletwitterfeed_bearertoken')
+  );
+
+  if (empty($tweets)) {
+    $content = 'There was an error';
   } else {
-    $stf_code = '<ul id="twitterFeed">';
+    $content = '<ul id="twitterFeed">';
 
-    foreach($twitter_data as $tweets){
-      $text = _simpletwitterfeed_makeURLs($tweets['text']);
-      $time = strtotime($tweets['created_at']);
-      $url = 'http://twitter.com/'.$tweets['user']['screen_name'].'/status/'.$tweets['id'];
-      $agoTime = _simpletwitterfeed_time_elapsed_string($time);
-      $stf_code .= '<li>';
-      $stf_code .= '<span class="twitter-text">'. $text . '</span>';
-      $stf_code .= '<br />';
-      $stf_code .= '<span class="twitter-date"><a href="'.$url.'">'.$agoTime .'</a></span>';
-      $stf_code .= '</li>';
-
+    foreach ($tweets as $tweet) {
+      $tweet = theme('simpletwitterfeed_tweet', array(
+        'text' => _simpletwitterfeed_makeURLs($tweet),
+        'url' => 'https://twitter.com/' . $tweet['user']['screen_name'].'/status/' . $tweet['id'],
+        'time_ago' => _simpletwitterfeed_time_elapsed_string(strtotime($tweet['created_at'])),
+      ));
     }
 
-    $stf_code .= '</ul>';
+    $content .= '</ul>';
   }
-  //$stf_code .= variable_get('simpletwitterfeed_username','');
-  return $stf_code;
-}
 
-//the magic. Returns the feed in a unorder listed.
-function simpletwitterfeed_getFeed() {
-  //need to create an app in twitter dev and get OAuth codes. Put them here
-  $stf_token = variable_get('simpletwitterfeed_token','');
-  $stf_token_secret = variable_get('simpletwitterfeed_stoken','');
-  $stf_consumer_key = variable_get('simpletwitterfeed_consumerkey','');
-  $stf_consumer_secret = variable_get('simpletwitterfeed_consumersecret','');
-
-  $stf_method = 'GET';
-  $stf_url = "https://api.twitter.com/1.1/statuses/user_timeline.json";// api call path
-
-  //edit these too.
-  $stf_query = array( // query parameters
-      'screen_name' => variable_get('simpletwitterfeed_username',''),
-      'count' => variable_get('simpletwitterfeed_count','') //0 returns all (limit is 200 i think)
-  );
-
-  $stf_oauth = array(
-      'oauth_consumer_key' => $stf_consumer_key,
-      'oauth_token' => $stf_token,
-      'oauth_nonce' => (string)mt_rand(), // a stronger nonce is recommended
-      'oauth_timestamp' => time(),
-      'oauth_signature_method' => 'HMAC-SHA1',
-      'oauth_version' => '1.0'
-  );
-
-  $stf_oauth = array_map("rawurlencode", $stf_oauth); // must be encoded before sorting
-  $stf_query = array_map("rawurlencode", $stf_query);
-
-  $stf_arr = array_merge($stf_oauth, $stf_query); // combine the values THEN sort
-
-  asort($stf_arr); // secondary sort (value)
-  ksort($stf_arr); // primary sort (key)
-
-  // http_build_query automatically encodes, but our parameters
-  // are already encoded, and must be by this point, so we undo
-  // the encoding step
-  $stf_querystring = urldecode(http_build_query($stf_arr, '', '&'));
-
-  // mash everything together for the text to hash
-  $stf_base_string = $stf_method."&".rawurlencode($stf_url)."&".rawurlencode($stf_querystring);
-
-  // same with the key
-  $stf_key = rawurlencode($stf_consumer_secret)."&".rawurlencode($stf_token_secret);
-
-  // generate the hash
-  $stf_signature = rawurlencode(base64_encode(hash_hmac('sha1', $stf_base_string, $stf_key, true)));
-
-  // this time we're using a normal GET query, and we're only encoding the query params
-  // (without the oauth params)
-  $stf_url .= "?".http_build_query($stf_query);
-  $stf_url = str_replace("&amp;","&",$stf_url);
-
-  //echo $url;
-
-  $stf_oauth['oauth_signature'] = $stf_signature; // don't want to abandon all that work!
-  ksort($stf_oauth); // probably not necessary, but twitter's demo does it
-
-  // also not necessary, but twitter's demo does this too
-  $stf_oauth = array_map("_simpletwitterfeed_add_quotes", $stf_oauth);
-
-  // this is the full value of the Authorization line
-  $stf_auth = "OAuth " . urldecode(http_build_query($stf_oauth, '', ', '));
-
-  // if you're doing post, you need to skip the GET building above
-  // and instead supply query parameters to CURLOPT_POSTFIELDS
-  $stf_options = array( CURLOPT_HTTPHEADER => array("Authorization: $stf_auth"),
-                    //CURLOPT_POSTFIELDS => $postfields,
-                    CURLOPT_HEADER => false,
-                    CURLOPT_URL => $stf_url,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_SSL_VERIFYPEER => false);
-
-  // do our business
-  $stf_feed = curl_init();
-  curl_setopt_array($stf_feed, $stf_options);
-  $stf_json = curl_exec($stf_feed);
-  curl_close($stf_feed);
-
-  return json_decode($stf_json,true);
-
-    //print_r($twitter_data);
-
+  return $content;
 
 }
 
-//part of twitters demo. Whatever...
-function _simpletwitterfeed_add_quotes($stf_str) {
-  return '"'.$stf_str.'"';
+/**
+ * Invokes hook_theme().
+ */
+function simpletwitterfeed_theme() {
+  return array(
+    'simpletwitterfeed_tweet' => array(
+      'variables' => array(),
+      'template' => 'simpletwitterfeed-tweet',
+    ),
+  );
 }
 
 //function takes the time from the tweet and computes a "time ago"
