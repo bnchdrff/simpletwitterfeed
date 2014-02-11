@@ -146,11 +146,13 @@ function simpletwitterfeed_block_view($delta = '') {
     switch($delta){
       case 'simple_twitter_feed':
         $block['subject'] = NULL;
-        $block['content'] = _simpletwitterfeed_block_content();
-        $block['#cache'] = array(
-          'cid' => 'simpletwitterfeed_block',
+        $block['content']['block']['#markup'] = '';
+        $block['content']['block']['#pre_render'] = array('_simpletwitterfeed_block_pre_render');
+        $block['content']['block']['#cache'] = array(
+          'keys' => array('simpletwitterfeed', 'cache', 'block'),
           'bin' => 'cache',
           'expire' => time() + variable_get('simpletwitterfeed_ttl', 600),
+          'granularity' => DRUPAL_CACHE_GLOBAL,
         );
         break;
     }
@@ -158,9 +160,10 @@ function simpletwitterfeed_block_view($delta = '') {
 }
 
 /**
- * Prepare content for block
+ * Add cacheable content to block element.
+ * See https://api.drupal.org/api/examples/render_example!render_example.module/7
  */
-function _simpletwitterfeed_block_content() {
+function _simpletwitterfeed_block_pre_render($element) {
   module_load_include('inc', 'simpletwitterfeed');
 
   $tweets = _simpletwitterfeed_get_tweets(
@@ -172,8 +175,7 @@ function _simpletwitterfeed_block_content() {
   if (empty($tweets)) {
     $content = 'There was an error';
   } else {
-    $content = '<ul id="twitterFeed">';
-
+    $content = '';
     foreach ($tweets as $tweet) {
       $content .= theme('simpletwitterfeed_tweet', array(
         'text' => _simpletwitterfeed_makeURLs($tweet->text),
@@ -181,12 +183,12 @@ function _simpletwitterfeed_block_content() {
         'time_ago' => _simpletwitterfeed_time_elapsed_string(strtotime($tweet->created_at)),
       ));
     }
-
-    $content .= '</ul>';
   }
 
-  return $content;
+  $element['#markup'] = $content;
+  $element['#children'] = $element['#markup'];
 
+  return $element;
 }
 
 /**
