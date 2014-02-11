@@ -11,5 +11,6 @@ function simpletwitterfeed_uninstall() {
   variable_del('simpletwitterfeed_consumerkey');
   variable_del('simpletwitterfeed_consumersecret');
   variable_del('simpletwitterfeed_ttl');
+  variable_del('simpletwitterfeed_bearertoken');
 }
 
