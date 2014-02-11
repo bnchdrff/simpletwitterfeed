@@ -32,13 +32,13 @@ function _simpletwitterfeed_generate_bearer_token($consumer_key, $consumer_secre
  * @return object
  *   Twitter API response
  */
-function _simpletwitterfeed_get_tweets($user, $count, $bearer_token) {
+function _simpletwitterfeed_get_tweets($user, $num, $bearer_token) {
   $client = new Freebird\Services\freebird\Client();
 
   $client->set_bearer_token($bearer_token);
 
   $res = $client->api_request('statuses/user_timeline.json', array('screen_name' => $user, 'count' => $num));
 
-  return $res;
+  return json_decode($res);
 }
 

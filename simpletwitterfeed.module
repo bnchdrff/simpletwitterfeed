@@ -175,10 +175,10 @@ function _simpletwitterfeed_block_content() {
     $content = '<ul id="twitterFeed">';
 
     foreach ($tweets as $tweet) {
-      $tweet = theme('simpletwitterfeed_tweet', array(
-        'text' => _simpletwitterfeed_makeURLs($tweet),
-        'url' => 'https://twitter.com/' . $tweet['user']['screen_name'].'/status/' . $tweet['id'],
-        'time_ago' => _simpletwitterfeed_time_elapsed_string(strtotime($tweet['created_at'])),
+      $content .= theme('simpletwitterfeed_tweet', array(
+        'text' => _simpletwitterfeed_makeURLs($tweet->text),
+        'url' => 'https://twitter.com/' . $tweet->user->screen_name . '/status/' . $tweet->id,
+        'time_ago' => _simpletwitterfeed_time_elapsed_string(strtotime($tweet->created_at)),
       ));
     }
 
