@@ -175,14 +175,16 @@ function _simpletwitterfeed_block_pre_render($element) {
   if (empty($tweets)) {
     $content = 'There was an error';
   } else {
-    $content = '';
+    $processed_tweets = array();
     foreach ($tweets as $tweet) {
-      $content .= theme('simpletwitterfeed_tweet', array(
+      $processed_tweets[] = array(
         'text' => _simpletwitterfeed_makeURLs($tweet->text),
         'url' => 'https://twitter.com/' . $tweet->user->screen_name . '/status/' . $tweet->id,
         'time_ago' => _simpletwitterfeed_time_elapsed_string(strtotime($tweet->created_at)),
-      ));
+        'user' => $tweet->user->screen_name,
+      );
     }
+    $content = theme('simpletwitterfeed_tweets', array('processed_tweets' => $processed_tweets));
   }
 
   $element['#markup'] = $content;
@@ -196,9 +198,9 @@ function _simpletwitterfeed_block_pre_render($element) {
  */
 function simpletwitterfeed_theme() {
   return array(
-    'simpletwitterfeed_tweet' => array(
+    'simpletwitterfeed_tweets' => array(
       'variables' => array(),
-      'template' => 'simpletwitterfeed-tweet',
+      'template' => 'simpletwitterfeed-tweets',
     ),
   );
 }
